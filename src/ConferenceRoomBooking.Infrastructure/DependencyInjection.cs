@@ -23,6 +23,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         services.AddScoped<IConferenceRoomService, ConferenceRoomService>();
+        services.AddScoped<IServiceService, ServiceService>();
 
         return services;
     }
