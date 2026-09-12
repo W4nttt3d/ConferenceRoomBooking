@@ -1,3 +1,5 @@
+using ConferenceRoomBooking.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Services ---
@@ -13,7 +15,8 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// TODO (крок 4 плану): AddDbContext<AppDbContext> з PostgreSQL connection string
+builder.Services.AddInfrastructure(builder.Configuration);
+
 // TODO (крок 6-7 плану): реєстрація Application-сервісів (IPricingService, IBookingService, ...)
 // TODO: FluentValidation auto-validation
 
