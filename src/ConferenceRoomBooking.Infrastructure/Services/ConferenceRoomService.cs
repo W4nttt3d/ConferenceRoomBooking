@@ -1,6 +1,7 @@
 using ConferenceRoomBooking.Application.DTOs.ConferenceRooms;
 using ConferenceRoomBooking.Application.Interfaces;
 using ConferenceRoomBooking.Domain.Entities;
+using ConferenceRoomBooking.Domain.Specifications;
 using ConferenceRoomBooking.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,6 +32,31 @@ public class ConferenceRoomService : IConferenceRoomService
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         return room is null ? null : ToResponse(room);
+    }
+
+    public async Task<IReadOnlyList<ConferenceRoomResponse>> SearchAvailableAsync(
+        DateTime startTime,
+        DateTime endTime,
+        int capacity,
+        CancellationToken cancellationToken = default)
+    {
+        // Крок 1: зали, що вже мають конфліктуюче бронювання на цей інтервал.
+        // Обчислюється окремим запитом, а не через вкладений Any() по навігації,
+        // щоб логіка конфлікту (BookingQueryExtensions.Overlapping) лишалась
+        // однією й тією самою функцією, яку легко unit-тестувати окремо.
+        var roomIdsWithConflict = await _context.Bookings
+            .Overlapping(startTime, endTime)
+            .Select(b => b.ConferenceRoomId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        // Крок 2: активні зали з достатньою місткістю, яких немає в списку конфліктних.
+        return await _context.ConferenceRooms
+            .AsNoTracking()
+            .Where(r => r.IsActive && r.Capacity >= capacity && !roomIdsWithConflict.Contains(r.Id))
+            .OrderBy(r => r.Name)
+            .Select(r => ToResponse(r))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<ConferenceRoomResponse> CreateAsync(CreateConferenceRoomRequest request, CancellationToken cancellationToken = default)

@@ -25,6 +25,21 @@ public class ConferenceRoomsController : ControllerBase
         return Ok(rooms);
     }
 
+    /// <summary>
+    /// Пошук активних залів із достатньою місткістю, вільних на заданий інтервал.
+    /// Приклад: /api/conference-rooms/available?startTime=2026-09-15T10:00&amp;endTime=2026-09-15T14:00&amp;capacity=50
+    /// </summary>
+    [HttpGet("available")]
+    [ProducesResponseType(typeof(IReadOnlyList<ConferenceRoomResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<ConferenceRoomResponse>>> GetAvailable(
+        [FromQuery] AvailableRoomsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var rooms = await _roomService.SearchAvailableAsync(query.StartTime, query.EndTime, query.Capacity, cancellationToken);
+        return Ok(rooms);
+    }
+
     /// <summary>Отримати зал за Id.</summary>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ConferenceRoomResponse), StatusCodes.Status200OK)]
