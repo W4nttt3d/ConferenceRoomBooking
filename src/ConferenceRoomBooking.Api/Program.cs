@@ -1,4 +1,5 @@
 using ConferenceRoomBooking.Infrastructure;
+using ConferenceRoomBooking.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,15 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // TODO: FluentValidation auto-validation
 
 var app = builder.Build();
+
+// Seed початкових даних (зали, послуги) — ідемпотентно, безпечно при кожному старті.
+// Тільки для Development: у production наповнення бази — окрема відповідальність (міграції + DBA).
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await DbInitializer.SeedAsync(dbContext);
+}
 
 // --- Middleware pipeline ---
 if (app.Environment.IsDevelopment())
