@@ -1,10 +1,15 @@
+using ConferenceRoomBooking.Api.Filters;
+using ConferenceRoomBooking.Application;
 using ConferenceRoomBooking.Infrastructure;
 using ConferenceRoomBooking.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Services ---
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ValidationFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -16,10 +21,10 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// TODO (крок 6-7 плану): реєстрація Application-сервісів (IPricingService, IBookingService, ...)
-// TODO: FluentValidation auto-validation
+// TODO (крок 7 плану): реєстрація Application-сервісів (IPricingService, IBookingService, ...)
 
 var app = builder.Build();
 
