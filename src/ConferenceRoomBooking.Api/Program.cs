@@ -24,8 +24,6 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// TODO (крок 7 плану): реєстрація Application-сервісів (IPricingService, IBookingService, ...)
-
 var app = builder.Build();
 
 // Seed початкових даних (зали, послуги) — ідемпотентно, безпечно при кожному старті.
