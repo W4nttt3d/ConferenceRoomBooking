@@ -1,0 +1,44 @@
+name: CI
+
+# Крок 18 плану: dotnet build + dotnet test на кожен push/PR у master.
+# Реальний PostgreSQL тут не потрібен — усі unit- та integration-тести
+# (WebApplicationFactory + EF Core InMemory, див. AppDbContext override
+# в CustomWebApplicationFactory) не звертаються до зовнішньої бази.
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # Кешування NuGet-пакетів між запусками — прискорює CI, не впливає
+      # на коректність (restore все одно перевіряє актуальність кешу за
+      # хешем усіх *.csproj/packages.lock.json файлів).
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore ConferenceRoomBooking.sln
+
+      - name: Build
+        run: dotnet build ConferenceRoomBooking.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test ConferenceRoomBooking.sln --no-build --configuration Release --verbosity normal
