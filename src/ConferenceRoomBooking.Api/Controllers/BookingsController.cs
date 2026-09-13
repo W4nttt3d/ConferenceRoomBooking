@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ConferenceRoomBooking.Api.Controllers;
 
-/// <summary>Бронювання конференц-залів і розрахунок вартості оренди.</summary>
+/// <summary>Бронювання конференц-залів, розрахунок вартості оренди та скасування бронювань.</summary>
 [ApiController]
 [Route("api/bookings")]
 [Produces("application/json")]
@@ -73,5 +73,30 @@ public class BookingsController : ControllerBase
     {
         var booking = await _bookingService.CreateAsync(request, cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = booking.Id }, booking);
+    }
+
+    /// <summary>
+    /// Скасувати бронювання (Status → Cancelled). Скасоване бронювання
+    /// звільняє інтервал часу для нових бронювань того самого залу
+    /// (BookingQueryExtensions.Overlapping не враховує Cancelled).
+    /// </summary>
+    /// <param name="id">Id бронювання.</param>
+    /// <response code="200">Бронювання скасовано.</response>
+    /// <response code="404">Бронювання з таким Id не існує.</response>
+    /// <response code="409">Бронювання вже було скасоване раніше.</response>
+    [HttpPatch("{id:int}/cancel")]
+    [ProducesResponseType(typeof(BookingResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<BookingResponse>> Cancel(int id, CancellationToken cancellationToken)
+    {
+        var booking = await _bookingService.CancelAsync(id, cancellationToken);
+
+        if (booking is null)
+        {
+            throw new NotFoundException($"Бронювання з Id = {id} не знайдено.");
+        }
+
+        return Ok(booking);
     }
 }

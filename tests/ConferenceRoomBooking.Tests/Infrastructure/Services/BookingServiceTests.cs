@@ -2,6 +2,7 @@ using ConferenceRoomBooking.Application.DTOs.Bookings;
 using ConferenceRoomBooking.Application.Exceptions;
 using ConferenceRoomBooking.Application.Services;
 using ConferenceRoomBooking.Domain.Entities;
+using ConferenceRoomBooking.Domain.Enums;
 using ConferenceRoomBooking.Tests.Common;
 using Xunit;
 using BookingServiceUnderTest = ConferenceRoomBooking.Infrastructure.Services.BookingService;
@@ -174,5 +175,95 @@ public class BookingServiceTests
         Assert.Equal(2500m, result.TotalPrice);
         Assert.Single(result.Services);
         Assert.Equal(500m, result.Services[0].Price);
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnNull_WhenBookingDoesNotExist()
+    {
+        var context = TestDbContextFactory.Create();
+        var sut = new BookingServiceUnderTest(context, new PricingService());
+
+        var result = await sut.CancelAsync(999);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldSetStatusToCancelled()
+    {
+        var context = TestDbContextFactory.Create();
+        var room = new ConferenceRoom { Name = "Зал А", Capacity = 50, BaseHourlyRate = 2000m, IsActive = true };
+        context.ConferenceRooms.Add(room);
+        var booking = new Booking
+        {
+            ConferenceRoomId = room.Id,
+            ConferenceRoom = room,
+            StartTime = new DateTime(2026, 9, 15, 10, 0, 0),
+            EndTime = new DateTime(2026, 9, 15, 11, 0, 0)
+        };
+        context.Bookings.Add(booking);
+        await context.SaveChangesAsync();
+
+        var sut = new BookingServiceUnderTest(context, new PricingService());
+        var result = await sut.CancelAsync(booking.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal("Cancelled", result!.Status);
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldFreeUpRoom_ForOverlappingNewBooking()
+    {
+        var context = TestDbContextFactory.Create();
+        var room = new ConferenceRoom { Name = "Зал А", Capacity = 50, BaseHourlyRate = 2000m, IsActive = true };
+        context.ConferenceRooms.Add(room);
+        var booking = new Booking
+        {
+            ConferenceRoomId = room.Id,
+            ConferenceRoom = room,
+            StartTime = new DateTime(2026, 9, 15, 10, 0, 0),
+            EndTime = new DateTime(2026, 9, 15, 14, 0, 0)
+        };
+        context.Bookings.Add(booking);
+        await context.SaveChangesAsync();
+
+        var sut = new BookingServiceUnderTest(context, new PricingService());
+        await sut.CancelAsync(booking.Id);
+
+        // Той самий інтервал, що конфліктував з тепер-скасованим бронюванням,
+        // має знову стати доступним (BookingQueryExtensions.Overlapping
+        // ігнорує Cancelled).
+        var newRequest = new CreateBookingRequest
+        {
+            ConferenceRoomId = room.Id,
+            StartTime = new DateTime(2026, 9, 15, 10, 0, 0),
+            EndTime = new DateTime(2026, 9, 15, 14, 0, 0)
+        };
+
+        var result = await sut.CreateAsync(newRequest);
+
+        Assert.NotEqual(0, result.Id);
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldThrowConflict_WhenAlreadyCancelled()
+    {
+        var context = TestDbContextFactory.Create();
+        var room = new ConferenceRoom { Name = "Зал А", Capacity = 50, BaseHourlyRate = 2000m, IsActive = true };
+        context.ConferenceRooms.Add(room);
+        var booking = new Booking
+        {
+            ConferenceRoomId = room.Id,
+            ConferenceRoom = room,
+            StartTime = new DateTime(2026, 9, 15, 10, 0, 0),
+            EndTime = new DateTime(2026, 9, 15, 11, 0, 0),
+            Status = BookingStatus.Cancelled
+        };
+        context.Bookings.Add(booking);
+        await context.SaveChangesAsync();
+
+        var sut = new BookingServiceUnderTest(context, new PricingService());
+
+        await Assert.ThrowsAsync<BookingConflictException>(() => sut.CancelAsync(booking.Id));
     }
 }

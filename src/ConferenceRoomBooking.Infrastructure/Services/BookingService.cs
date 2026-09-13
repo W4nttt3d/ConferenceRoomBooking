@@ -4,6 +4,7 @@ using ConferenceRoomBooking.Application.DTOs.Bookings;
 using ConferenceRoomBooking.Application.Exceptions;
 using ConferenceRoomBooking.Application.Interfaces;
 using ConferenceRoomBooking.Domain.Entities;
+using ConferenceRoomBooking.Domain.Enums;
 using ConferenceRoomBooking.Domain.Specifications;
 using ConferenceRoomBooking.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -203,6 +204,36 @@ public class BookingService : IBookingService
                 Price = s.Price
             }).ToList()
         };
+    }
+
+    public async Task<BookingResponse?> CancelAsync(int id, CancellationToken cancellationToken = default)
+    {
+        // Без AsNoTracking — booking потрібно змінити й зберегти нижче.
+        var booking = await _context.Bookings
+            .Include(b => b.ConferenceRoom)
+            .Include(b => b.BookingServices)
+                .ThenInclude(bs => bs.Service)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+
+        if (booking is null)
+        {
+            return null;
+        }
+
+        // Скасування вже скасованого бронювання — це конфлікт зі станом
+        // ресурсу (RFC 7807 / RFC 9110: 409 саме для "request conflicts
+        // with the current state of the resource"), а не "не знайдено" чи
+        // помилка валідації вхідних даних, тому й той самий
+        // BookingConflictException, що й для перетину часу бронювань.
+        if (booking.Status == BookingStatus.Cancelled)
+        {
+            throw new BookingConflictException($"Бронювання з Id = {id} вже скасовано.");
+        }
+
+        booking.Status = BookingStatus.Cancelled;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return ToResponse(booking);
     }
 
     private static BookingResponse ToResponse(Booking booking) => new()

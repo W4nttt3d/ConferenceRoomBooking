@@ -16,4 +16,11 @@ public interface IBookingService
     /// - UnprocessableEntityException — якщо обрана послуга деактивована.
     /// </summary>
     Task<BookingResponse> CreateAsync(CreateBookingRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Скасовує бронювання (Status = Cancelled). Повертає null, якщо
+    /// бронювання з таким Id не знайдено. Кидає BookingConflictException,
+    /// якщо бронювання вже було скасоване раніше.
+    /// </summary>
+    Task<BookingResponse?> CancelAsync(int id, CancellationToken cancellationToken = default);
 }
