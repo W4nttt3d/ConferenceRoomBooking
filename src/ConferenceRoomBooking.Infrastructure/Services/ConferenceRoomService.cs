@@ -1,3 +1,4 @@
+using ConferenceRoomBooking.Application.Common;
 using ConferenceRoomBooking.Application.DTOs.ConferenceRooms;
 using ConferenceRoomBooking.Application.Interfaces;
 using ConferenceRoomBooking.Domain.Entities;
@@ -40,6 +41,13 @@ public class ConferenceRoomService : IConferenceRoomService
         int capacity,
         CancellationToken cancellationToken = default)
     {
+        // Нормалізація Kind — див. DateTimeExtensions.AsUnspecifiedKind()
+        // та коментар у BookingService.CreateAsync. Потрібно тут так само,
+        // бо ці параметри теж використовуються в запиті до "timestamp
+        // without time zone" колонок.
+        startTime = startTime.AsUnspecifiedKind();
+        endTime = endTime.AsUnspecifiedKind();
+
         // Крок 1: зали, що вже мають конфліктуюче бронювання на цей інтервал.
         // Обчислюється окремим запитом, а не через вкладений Any() по навігації,
         // щоб логіка конфлікту (BookingQueryExtensions.Overlapping) лишалась

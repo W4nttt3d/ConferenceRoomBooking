@@ -23,7 +23,17 @@ public class Booking
     /// </summary>
     public decimal TotalPrice { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// Заповнюється базою даних через HasDefaultValueSql("now()")
+    /// (див. BookingConfiguration) — навмисно БЕЗ property initializer
+    /// (= DateTime.UtcNow) тут. Такий initializer одразу проставляв би
+    /// Kind=Utc ще в C#, і EF Core надсилав би це значення в INSERT,
+    /// перекриваючи DB-default — а колонка "timestamp without time zone"
+    /// (Assumptions & Decisions) вимагає саме Kind=Unspecified. Лишаючи
+    /// властивість зі значенням CLR за замовчуванням (не встановленим),
+    /// EF Core сам пропускає її в INSERT і дає БД згенерувати значення.
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
 
     public BookingStatus Status { get; set; } = BookingStatus.Confirmed;
 

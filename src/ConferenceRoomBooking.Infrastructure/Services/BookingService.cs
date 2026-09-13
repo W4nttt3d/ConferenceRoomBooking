@@ -1,3 +1,5 @@
+using System.Data;
+using ConferenceRoomBooking.Application.Common;
 using ConferenceRoomBooking.Application.DTOs.Bookings;
 using ConferenceRoomBooking.Application.Exceptions;
 using ConferenceRoomBooking.Application.Interfaces;
@@ -5,6 +7,8 @@ using ConferenceRoomBooking.Domain.Entities;
 using ConferenceRoomBooking.Domain.Specifications;
 using ConferenceRoomBooking.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 using DomainService = ConferenceRoomBooking.Domain.Entities.Service;
 using DomainBookingService = ConferenceRoomBooking.Domain.Entities.BookingService;
 
@@ -48,14 +52,13 @@ public class BookingService : IBookingService
 
     public async Task<BookingResponse> CreateAsync(CreateBookingRequest request, CancellationToken cancellationToken = default)
     {
+        // Нормалізація Kind — див. DateTimeExtensions.AsUnspecifiedKind().
+        // Робимо це один раз, на самому вході в метод, і далі скрізь
+        // використовуємо ці локальні змінні замість request.StartTime/EndTime.
+        var startTime = request.StartTime.AsUnspecifiedKind();
+        var endTime = request.EndTime.AsUnspecifiedKind();
+
         // 1-2. Зал існує і активний.
-        // ПРИМІТКА (крок 12 плану — concurrency): весь метод CreateAsync,
-        // від перевірки конфлікту до SaveChangesAsync, буде обгорнутий в
-        // транзакцію з IsolationLevel.Serializable. Наразі без цього два
-        // одночасні запити теоретично можуть обидва пройти перевірку
-        // конфлікту й створити накладені бронювання — свідомо залишено
-        // на наступний крок, щоб не змішувати два різні за складністю
-        // завдання в одному коміті.
         var room = await _context.ConferenceRooms
             .FirstOrDefaultAsync(r => r.Id == request.ConferenceRoomId, cancellationToken)
             ?? throw new NotFoundException($"Зал з Id = {request.ConferenceRoomId} не знайдено.");
@@ -68,20 +71,6 @@ public class BookingService : IBookingService
         // 3. Правильність часу (StartTime < EndTime, робочі години) вже
         // перевірена CreateBookingRequestValidator через ValidationFilter
         // до того, як виконання взагалі дійшло до цього сервісу.
-
-        // 4. Конфлікт бронювання — той самий Overlapping(), що й у пошуку
-        // доступних залів (крок 9), тепер звужений до конкретного залу.
-        var hasConflict = await _context.Bookings
-            .Where(b => b.ConferenceRoomId == request.ConferenceRoomId)
-            .Overlapping(request.StartTime, request.EndTime)
-            .AnyAsync(cancellationToken);
-
-        if (hasConflict)
-        {
-            throw new BookingConflictException(
-                $"Зал з Id = {request.ConferenceRoomId} вже заброньований на період " +
-                $"{request.StartTime:HH:mm}–{request.EndTime:HH:mm}.");
-        }
 
         // 5-6. Послуги існують і активні.
         var requestedServiceIds = request.ServiceIds.Distinct().ToList();
@@ -108,17 +97,14 @@ public class BookingService : IBookingService
 
         // 7. Розрахунок вартості: оренда залу (PricingService, крок 10)
         // + послуги (додаються один раз, без множення на тривалість).
-        var roomPrice = _pricingService.CalculateRoomPrice(room.BaseHourlyRate, request.StartTime, request.EndTime);
+        var roomPrice = _pricingService.CalculateRoomPrice(room.BaseHourlyRate, startTime, endTime);
         var servicesPrice = services.Sum(s => s.Price);
 
-        // 8-9. Створення Booking + BookingService (ціна послуги
-        // фіксується тут, у BookingService.Price — див. коментар
-        // у Domain.Entities.BookingService).
         var booking = new Booking
         {
             ConferenceRoomId = room.Id,
-            StartTime = request.StartTime,
-            EndTime = request.EndTime,
+            StartTime = startTime,
+            EndTime = endTime,
             TotalPrice = roomPrice + servicesPrice,
             BookingServices = services.Select(s => new DomainBookingService
             {
@@ -127,8 +113,76 @@ public class BookingService : IBookingService
             }).ToList()
         };
 
-        _context.Bookings.Add(booking);
-        await _context.SaveChangesAsync(cancellationToken);
+        // 4 + 8-9. Перевірка конфлікту і створення бронювання — в ОДНІЙ
+        // транзакції з IsolationLevel.Serializable. Без цього два одночасні
+        // запити на той самий інтервал теоретично можуть обидва пройти
+        // перевірку конфлікту (обидва бачать "вільно") і створити накладені
+        // бронювання. Serializable гарантує: якщо два такі запити
+        // виконуються одночасно, PostgreSQL сам відкотить один з них з
+        // помилкою serialization_failure, навіть якщо обидві транзакції
+        // локально "не побачили" конфлікту одна одної.
+        //
+        // Транзакція вмикається лише для реляційного провайдера — EF Core
+        // InMemory (використовується в unit-тестах) не підтримує
+        // BeginTransactionAsync(IsolationLevel), а сам є однопотоковим,
+        // тому race condition там у принципі неможливий.
+        var isRelational = _context.Database.IsRelational();
+        IDbContextTransaction? transaction = isRelational
+            ? await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            : null;
+
+        try
+        {
+            var hasConflict = await _context.Bookings
+                .Where(b => b.ConferenceRoomId == request.ConferenceRoomId)
+                .Overlapping(startTime, endTime)
+                .AnyAsync(cancellationToken);
+
+            if (hasConflict)
+            {
+                throw new BookingConflictException(
+                    $"Зал з Id = {request.ConferenceRoomId} вже заброньований на період " +
+                    $"{startTime:HH:mm}–{endTime:HH:mm}.");
+            }
+
+            _context.Bookings.Add(booking);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.SerializationFailure)
+        {
+            // PostgreSQL сам виявив конфлікт серіалізації між двома
+            // одночасними Serializable-транзакціями — навіть якщо наша
+            // перевірка вище (AnyAsync) цього не побачила через timing.
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+
+            throw new BookingConflictException(
+                $"Зал з Id = {request.ConferenceRoomId} вже заброньований на цей інтервал " +
+                "(виявлено конфлікт одночасного доступу).");
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
 
         // Підвантажуємо ConferenceRoom/Service для мапінгу у відповідь
         // (уникаємо додаткового round-trip: room уже в пам'яті, а
