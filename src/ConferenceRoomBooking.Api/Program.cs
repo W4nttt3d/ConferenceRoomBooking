@@ -23,12 +23,13 @@ builder.Services.AddSwaggerGen(options =>
             "Усі помилки повертаються у форматі ProblemDetails (RFC 7807)."
     });
 
-    // Крок 14 плану: повне покриття Swagger — підтягуємо XML-коментарі
-    // (<summary>, <param>, <response>, <example>) як з Api (контролери),
-    // так і з Application (DTO, які повертаються/приймаються ендпоінтами).
-    // Без цього другого файлу описи властивостей DTO в схемах були б порожні.
+    // XML-коментарі (<summary>, <param>, <response>, <example>) з контролерів API-проєкту.
     var apiXmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, apiXmlFile));
+    var apiXmlPath = Path.Combine(AppContext.BaseDirectory, apiXmlFile);
+    if (File.Exists(apiXmlPath))
+    {
+        options.IncludeXmlComments(apiXmlPath);
+    }
 
     var applicationXmlFile = "ConferenceRoomBooking.Application.xml";
     var applicationXmlPath = Path.Combine(AppContext.BaseDirectory, applicationXmlFile);
@@ -41,21 +42,20 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Глобальна обробка винятків (крок 13 плану) — ProblemDetails для всіх
-// контролерів в одному місці. AddProblemDetails() дає стандартний формат
-// і для помилок, які генерує сам ASP.NET Core (404 для невідомого route
-// тощо), а не тільки для наших власних винятків.
+// ProblemDetails для всіх контролерів в одному місці. AddProblemDetails()
+// дає той самий формат і для помилок, які генерує сам ASP.NET Core
+// (наприклад, 404 для невідомого route), а не тільки для наших винятків.
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
-// Має стояти якомога раніше в конвеєрі — щоб перехоплювати винятки з
+// Має стояти якомога раніше в конвеєрі - щоб перехоплювати винятки з
 // усіх наступних middleware та контролерів.
 app.UseExceptionHandler();
 
-// Seed початкових даних (зали, послуги) — ідемпотентно, безпечно при кожному старті.
-// Тільки для Development: у production наповнення бази — окрема відповідальність (міграції + DBA).
+// Seed початкових даних (зали, послуги) - ідемпотентно, безпечно при кожному старті.
+// Тільки для Development: у production наповнення бази - окрема відповідальність (міграції + DBA).
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
@@ -77,7 +77,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
-// Простий health check — не потребує додаткових пакетів
+// Простий health check - не потребує додаткових пакетів
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 // Зручність: відкриваючи корінь сайту, одразу потрапляємо на Swagger

@@ -9,19 +9,7 @@ namespace ConferenceRoomBooking.Tests.Api.IntegrationTests;
 
 /// <summary>
 /// Піднімає весь застосунок (Program.cs, включно з роутингом, фільтрами
-/// валідації та GlobalExceptionHandler) в пам'яті, як того вимагає крок 17
-/// плану ("Integration tests ... через WebApplicationFactory").
-///
-/// Два свідомих рішення:
-/// 1. AppDbContext, зареєстрований в Infrastructure.DependencyInjection з
-///    UseNpgsql, тут підмінюється на EF Core InMemory з унікальною назвою
-///    бази (Guid) — щоб тести не залежали від реального PostgreSQL і не
-///    впливали одне на одного.
-/// 2. Environment = "Testing" (не "Development") — щоб не спрацював
-///    автоматичний DbInitializer.SeedAsync у Program.cs (він умовний на
-///    IsDevelopment()). Кожен тест сам готує собі дані через SeedAsync
-///    нижче — так набір даних завжди точно відомий і не залежить від
-///    порядку виконання тестів.
+/// валідації та GlobalExceptionHandler) в пам'яті.
 ///
 /// Кожен тестовий клас створює власний екземпляр цієї фабрики (у
 /// конструкторі, без IClassFixture) — xUnit створює новий екземпляр класу

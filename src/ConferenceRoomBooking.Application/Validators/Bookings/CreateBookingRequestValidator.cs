@@ -5,8 +5,7 @@ namespace ConferenceRoomBooking.Application.Validators.Bookings;
 
 public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequest>
 {
-    // Робочі години залів (див. Assumptions & Decisions у README):
-    // межі включні — бронювання рівно з 06:00 або рівно до 23:00 дозволене.
+    // Межі включні: 06:00 і 23:00 самі по собі дозволені.
     private static readonly TimeSpan WorkingHoursStart = new(6, 0, 0);
     private static readonly TimeSpan WorkingHoursEnd = new(23, 0, 0);
 
@@ -23,19 +22,18 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
             .GreaterThan(x => x.StartTime)
             .WithMessage("Час завершення має бути пізніше за час початку.");
 
-        // Обидві межі перевіряються окремо, щоб повідомлення про помилку
-        // чітко вказувало, яка саме межа (початок чи кінець) порушена.
+        // Перевіряємо StartTime і EndTime окремо, щоб повідомлення про
+        // помилку вказувало, яка саме межа порушена.
         RuleFor(x => x.StartTime)
             .Must(BeWithinWorkingHours)
-            .WithMessage($"Час початку має бути в межах {WorkingHoursStart:hh\\:mm}–{WorkingHoursEnd:hh\\:mm}.");
+            .WithMessage($"Час початку має бути в межах {WorkingHoursStart:hh\\:mm}-{WorkingHoursEnd:hh\\:mm}.");
 
         RuleFor(x => x.EndTime)
             .Must(BeWithinWorkingHours)
-            .WithMessage($"Час завершення має бути в межах {WorkingHoursStart:hh\\:mm}–{WorkingHoursEnd:hh\\:mm}.");
+            .WithMessage($"Час завершення має бути в межах {WorkingHoursStart:hh\\:mm}-{WorkingHoursEnd:hh\\:mm}.");
 
-        // Рішення (задокументувати в README): бронювання не може перетинати
-        // північ — це відповідає робочим годинам залу (06:00–23:00) і
-        // спрощує погодинний розрахунок ціни (крок 10 плану).
+        // Бронювання не може перетинати північ - вписується в робочі
+        // години залу і спрощує погодинний розрахунок ціни.
         RuleFor(x => x)
             .Must(x => x.StartTime.Date == x.EndTime.Date)
             .WithMessage("Бронювання не може тривати довше одного календарного дня.")

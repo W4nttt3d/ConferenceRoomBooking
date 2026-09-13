@@ -58,9 +58,8 @@ public class ServiceService : IServiceService
             return null;
         }
 
-        // Навмисне рішення: змінюємо Price напряму на сутності Service.
-        // Уже створені бронювання не постраждають — там зберігається
-        // BookingService.Price, зафіксований окремо на момент бронювання.
+        // Зміна ціни тут не зачіпає вже створені бронювання - там окремо
+        // зберігається BookingService.Price, зафіксований на момент бронювання.
         service.Name = request.Name;
         service.Price = request.Price;
 

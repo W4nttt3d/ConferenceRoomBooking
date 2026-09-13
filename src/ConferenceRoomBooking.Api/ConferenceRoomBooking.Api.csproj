@@ -3,6 +3,11 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <UserSecretsId>c1a1b7a0-5b1e-4e9a-9b0a-conference-room-booking</UserSecretsId>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591 = "відсутній XML-коментар для публічного члена". Не вимагаємо
+         документації для КОЖНОГО публічного члена — лише там, де вона
+         додана свідомо (контролери, DTO). -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +21,15 @@
   <ItemGroup>
     <ProjectReference Include="..\ConferenceRoomBooking.Application\ConferenceRoomBooking.Application.csproj" />
     <ProjectReference Include="..\ConferenceRoomBooking.Infrastructure\ConferenceRoomBooking.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- XML-документація Application-проєкту (DTO) не копіюється автоматично
+       разом з ProjectReference — лише .dll. Копіюємо її вручну, щоб Swagger
+       міг показати описи властивостей DTO, а не тільки самих ендпоінтів. -->
+  <ItemGroup>
+    <None Include="..\ConferenceRoomBooking.Application\bin\$(Configuration)\$(TargetFramework)\ConferenceRoomBooking.Application.xml"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('..\ConferenceRoomBooking.Application\bin\$(Configuration)\$(TargetFramework)\ConferenceRoomBooking.Application.xml')" />
   </ItemGroup>
 
 </Project>

@@ -215,7 +215,8 @@ dotnet run --project src/ConferenceRoomBooking.Api
 
 При першому старті в Development-режимі база автоматично наповниться
 початковими даними (3 зали, 3 послуги — `DbInitializer`). Swagger UI
-доступний на `/health` — простий health check, `/` перенаправляє на Swagger.
+доступний на `/swagger`; `/health` — простий health check; `/` (корінь)
+перенаправляє на Swagger.
 
 ## Testing
 
@@ -223,8 +224,7 @@ dotnet run --project src/ConferenceRoomBooking.Api
 dotnet test
 ```
 
-Unit-тести (`ConferenceRoomBooking.Tests`), без залежності від реальної БД
-(EF Core InMemory):
+**Unit-тести** (без залежності від реальної БД, EF Core InMemory):
 
 - **PricingServiceTests** — усі тарифні зони, перетин зон, часткові години,
   валідація `EndTime > StartTime`
@@ -240,14 +240,28 @@ Unit-тести (`ConferenceRoomBooking.Tests`), без залежності в�
 - **GlobalExceptionHandlerTests** — коректний маппінг винятків на
   HTTP-статуси та формат `ProblemDetails`
 
+**Integration-тести** (`WebApplicationFactory<Program>` + EF Core InMemory,
+`CustomWebApplicationFactory`) — перевіряють увесь HTTP-конвеєр (routing →
+`ValidationFilter` → controller → сервіс → `GlobalExceptionHandler`), а не
+сервіс напряму:
+
+- **ConferenceRoomsControllerTests** — створення залу через реальний HTTP-запит,
+  коректний `Location`-заголовок, `400` з `ValidationProblemDetails` для
+  невалідних даних
+- **BookingsControllerTests** — створення бронювання з коректним розрахунком
+  ціни, `409` при конфлікті інтервалів, `404` для неіснуючого залу
+- **AvailableRoomsTests** — фільтрація за місткістю/активністю/конфліктом
+  через реальний query string, `400` для `endTime < startTime`
+
+**CI**: GitHub Actions (`.github/workflows/ci.yml`) запускає
+`dotnet build` + `dotnet test` на кожен push/PR у `master`. Реальний
+PostgreSQL не потрібен — усі тести ізольовані через EF Core InMemory.
+
 ## Future Improvements
 
 Свідомо не реалізовано в цій ітерації — через обмеження часу, а не тому, що
 про це забули:
 
-- **Integration-тести** через `WebApplicationFactory` (наразі покриття —
-  лише на рівні unit-тестів сервісів)
-- **CI** (GitHub Actions: `dotnet build` + `dotnet test` на кожен push/PR)
 - **Звіти й аналітика**: завантаженість залів (room-utilization), виручка за
   період, популярні послуги/зали
 - **Docker** (Dockerfile + docker-compose з PostgreSQL)

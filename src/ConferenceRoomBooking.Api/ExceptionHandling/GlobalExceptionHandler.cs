@@ -5,13 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace ConferenceRoomBooking.Api.ExceptionHandling;
 
 /// <summary>
-/// Єдина точка обробки необроблених винятків для всього API. Раніше (крок
-/// 11 плану) те саме мапилось локальним try/catch у BookingsController —
-/// тепер ця логіка тут, в одному місці, для всіх контролерів одразу.
-///
-/// Клієнту ніколи не потрапляють StackTrace, SQL-помилки чи інші внутрішні
-/// деталі — вони йдуть тільки в лог (ILogger); у відповідь — лише
-/// ProblemDetails (RFC 7807) з безпечним для показу повідомленням.
+/// Єдина точка обробки необроблених винятків для всього API. Клієнту
+/// ніколи не потрапляють StackTrace, SQL-помилки чи інші внутрішні деталі -
+/// вони йдуть тільки в лог; у відповідь - лише ProblemDetails (RFC 7807)
+/// з безпечним для показу повідомленням.
 /// </summary>
 public class GlobalExceptionHandler : IExceptionHandler
 {
@@ -39,7 +36,7 @@ public class GlobalExceptionHandler : IExceptionHandler
 
         if (isUnexpected)
         {
-            // Повний виняток зі StackTrace — тільки в лог, ніколи в HTTP-відповідь.
+            // Повний виняток - тільки в лог, ніколи в HTTP-відповідь.
             _logger.LogError(exception, "Необроблений виняток під час {Method} {Path}",
                 httpContext.Request.Method, httpContext.Request.Path);
         }
@@ -53,9 +50,8 @@ public class GlobalExceptionHandler : IExceptionHandler
         {
             Status = statusCode,
             Title = title,
-            // Для очікуваних доменних винятків (404/409/422) повідомлення вже
-            // сформульоване в сервісному шарі саме для користувача — безпечне
-            // для показу. Для 500 — тільки загальний текст, без деталей.
+            // Для доменних винятків (404/409/422) повідомлення вже сформульоване
+            // для користувача в сервісному шарі. Для 500 - тільки загальний текст.
             Detail = isUnexpected
                 ? "Сталася непередбачена помилка. Спробуйте пізніше."
                 : exception.Message,
@@ -65,6 +61,6 @@ public class GlobalExceptionHandler : IExceptionHandler
         httpContext.Response.StatusCode = statusCode;
         await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 
-        return true; // виняток оброблено — далі по конвеєру не передаємо
+        return true;
     }
 }

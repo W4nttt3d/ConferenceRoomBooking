@@ -13,10 +13,5 @@ public class AvailableRoomsQueryValidator : AbstractValidator<AvailableRoomsQuer
         RuleFor(x => x.EndTime)
             .GreaterThan(x => x.StartTime)
             .WithMessage("Час завершення має бути пізніше за час початку.");
-
-        // Свідоме рішення: тут НЕ перевіряються робочі години (06:00–23:00),
-        // на відміну від CreateBookingRequestValidator. Пошук — це лише
-        // читання, обмеження на робочі години застосовується один раз,
-        // у єдиному місці — при фактичному створенні бронювання.
     }
 }

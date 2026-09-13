@@ -41,24 +41,20 @@ public class ConferenceRoomService : IConferenceRoomService
         int capacity,
         CancellationToken cancellationToken = default)
     {
-        // Нормалізація Kind — див. DateTimeExtensions.AsUnspecifiedKind()
-        // та коментар у BookingService.CreateAsync. Потрібно тут так само,
-        // бо ці параметри теж використовуються в запиті до "timestamp
-        // without time zone" колонок.
+        // Kind нормалізуємо так само, як у BookingService.CreateAsync -
+        // колонки StartTime/EndTime в БД без часового поясу.
         startTime = startTime.AsUnspecifiedKind();
         endTime = endTime.AsUnspecifiedKind();
 
-        // Крок 1: зали, що вже мають конфліктуюче бронювання на цей інтервал.
-        // Обчислюється окремим запитом, а не через вкладений Any() по навігації,
-        // щоб логіка конфлікту (BookingQueryExtensions.Overlapping) лишалась
-        // однією й тією самою функцією, яку легко unit-тестувати окремо.
+        // Спочатку окремим запитом дістаємо Id залів з конфліктом, а не
+        // фільтруємо через вкладений Any() по навігації - так логіка
+        // конфлікту лишається в одному місці (Overlapping) і легко тестується.
         var roomIdsWithConflict = await _context.Bookings
             .Overlapping(startTime, endTime)
             .Select(b => b.ConferenceRoomId)
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        // Крок 2: активні зали з достатньою місткістю, яких немає в списку конфліктних.
         return await _context.ConferenceRooms
             .AsNoTracking()
             .Where(r => r.IsActive && r.Capacity >= capacity && !roomIdsWithConflict.Contains(r.Id))
@@ -112,7 +108,7 @@ public class ConferenceRoomService : IConferenceRoomService
             return false;
         }
 
-        // Soft delete — ніколи не видаляємо зал фізично, щоб не втратити
+        // Soft delete - ніколи не видаляємо зал фізично, щоб не втратити
         // історію бронювань, які на нього посилаються.
         room.IsActive = false;
         await _context.SaveChangesAsync(cancellationToken);

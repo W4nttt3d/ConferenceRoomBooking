@@ -5,17 +5,14 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace ConferenceRoomBooking.Api.Filters;
 
 /// <summary>
-/// Автоматично валідує вхідні DTO контролерів через FluentValidation, якщо
-/// для типу аргументу зареєстровано IValidator&lt;T&gt;. Свідоме рішення:
-/// написаний вручну фільтр замість пакета FluentValidation.AspNetCore
-/// (автоматична MVC-інтеграція від FluentValidation офіційно визнана
-/// застарілою автором бібліотеки) — так поведінка лишається явною
-/// і легко тестованою, без прихованої "магії".
+/// Валідує вхідні DTO контролерів через FluentValidation, якщо для типу
+/// аргументу зареєстровано IValidator&lt;T&gt;. Фільтр написаний вручну
+/// замість пакета FluentValidation.AspNetCore - автоматична MVC-інтеграція
+/// звідти визнана застарілою самим автором бібліотеки, а так поведінка
+/// лишається явною і без прихованої "магії".
 ///
-/// При невдалій валідації повертає 400 з ValidationProblemDetails
-/// (RFC 7807) — той самий формат, що й глобальний exception middleware
-/// (крок 9 плану), тому клієнт бачить консистентну структуру помилок
-/// незалежно від того, валідація це чи виняток.
+/// При невдалій валідації повертає 400 з ValidationProblemDetails - той
+/// самий формат, що й глобальний exception handler для інших помилок.
 /// </summary>
 public class ValidationFilter : IAsyncActionFilter
 {
@@ -32,7 +29,7 @@ public class ValidationFilter : IAsyncActionFilter
 
             if (context.HttpContext.RequestServices.GetService(validatorType) is not IValidator validator)
             {
-                continue; // для цього типу немає зареєстрованого валідатора — пропускаємо
+                continue; // для цього типу немає зареєстрованого валідатора - пропускаємо
             }
 
             var validationContext = new ValidationContext<object>(argument);

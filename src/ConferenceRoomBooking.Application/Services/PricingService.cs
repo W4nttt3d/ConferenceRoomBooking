@@ -3,16 +3,14 @@ using ConferenceRoomBooking.Application.Interfaces;
 namespace ConferenceRoomBooking.Application.Services;
 
 /// <summary>
-/// На відміну від ConferenceRoomService/ServiceService, цей сервіс не
-/// потребує AppDbContext — це чиста функція розрахунку, тому він фізично
-/// живе в Application (а не в Infrastructure), де й задекларований контракт.
+/// Чиста функція розрахунку без звернень до БД, тому живе в Application,
+/// а не в Infrastructure (на відміну від ConferenceRoomService/ServiceService).
 /// </summary>
 public class PricingService : IPricingService
 {
-    // Тарифні зони визначені як суміжні, невзаємоперетинні інтервали.
-    // Рішення про пріоритет "Peak (12:00–14:00) вище за Standard" уже
-    // враховане тут самими межами: Standard розбитий на 09:00–12:00 і
-    // 14:00–18:00, а 12:00–14:00 виділений окремою зоною Peak.
+    // Зони суміжні й не перетинаються. Peak має пріоритет над Standard просто
+    // тому, що Standard розбитий на дві частини (09:00-12:00 і 14:00-18:00),
+    // а 12:00-14:00 виділений в окрему зону.
     private static readonly (TimeSpan Start, TimeSpan End, decimal Multiplier)[] TariffZones =
     {
         (new TimeSpan(6, 0, 0), new TimeSpan(9, 0, 0), 0.90m),   // Morning:  -10%
@@ -29,10 +27,9 @@ public class PricingService : IPricingService
             throw new ArgumentException("EndTime має бути пізніше за StartTime.", nameof(endTime));
         }
 
-        // Розбиваємо весь інтервал бронювання на сегменти по межах тарифних
-        // зон, що потрапляють усередину — так бронювання, яке перетинає
-        // кілька зон (наприклад, 11:00–15:00), рахується погодинно/по
-        // сегментах, а не множенням середньої ставки на всю тривалість.
+        // Розбиваємо інтервал на сегменти по межах тарифних зон і рахуємо
+        // кожен окремо - бронювання, що перетинає кілька зон (наприклад,
+        // 11:00-15:00), не можна порахувати одним множенням.
         var boundaries = new SortedSet<DateTime> { startTime, endTime };
 
         foreach (var zone in TariffZones)
@@ -49,9 +46,8 @@ public class PricingService : IPricingService
             var segmentStart = orderedBoundaries[i];
             var segmentEnd = orderedBoundaries[i + 1];
 
-            // Визначаємо тарифну зону по середині сегмента — так межова
-            // точка (яка сама належить двом сусіднім сегментам) ніколи
-            // не потрапляє в розрахунок як "середина".
+            // Зону беремо по середині сегмента, щоб межова точка (яка
+            // належить одразу двом сусіднім сегментам) не збивала розрахунок.
             var midpoint = segmentStart + TimeSpan.FromTicks((segmentEnd - segmentStart).Ticks / 2);
             var multiplier = GetMultiplier(midpoint.TimeOfDay);
             var hours = (decimal)(segmentEnd - segmentStart).TotalHours;
@@ -80,10 +76,9 @@ public class PricingService : IPricingService
             }
         }
 
-        // Час поза визначеними тарифними зонами (< 06:00 або >= 23:00).
-        // На практиці не повинно траплятися — CreateBookingRequestValidator
-        // (крок 6) вже гарантує 06:00 <= booking <= 23:00. Базовий коефіцієнт
-        // тут — лише запобіжник, а не сигнал про валідну ситуацію.
+        // Час поза межами 06:00-23:00 сюди дійти не повинен - валідатор
+        // бронювання це відсікає раніше. Базовий коефіцієнт тут - просто
+        // запобіжник, а не очікувана ситуація.
         return 1.00m;
     }
 }

@@ -16,15 +16,13 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .HasColumnType("numeric(10,2)");
 
         builder.Property(b => b.Status)
-            .HasConversion<string>()   // зберігати enum як текст, а не int — читабельніше в БД напряму
+            .HasConversion<string>()   // зберігати enum як текст, а не int - читабельніше в БД напряму
             .HasMaxLength(20);
 
-        // Рішення (Assumptions & Decisions): сервіс односайтовий — один зал,
-        // один часовий пояс, тому час зберігається як "timestamp without
-        // time zone" (без UTC-конвертації). Це навмисно уникає вимоги
-        // Npgsql 8+ щодо DateTime.Kind = Utc для "timestamp with time zone",
-        // яка інакше кидає ArgumentException для будь-якого значення,
-        // що прийшло з query-рядка чи JSON без явного "Z"/офсету.
+        // Сервіс односайтовий (один зал, один часовий пояс), тому час
+        // зберігається без прив'язки до зони - "timestamp without time zone".
+        // Npgsql 8+ вимагає точної відповідності Kind і типу колонки,
+        // інакше кидає ArgumentException.
         builder.Property(b => b.StartTime)
             .HasColumnType("timestamp without time zone");
 
@@ -35,9 +33,8 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .HasColumnType("timestamp without time zone")
             .HasDefaultValueSql("now()");
 
-        // Перевірка конфлікту бронювань (крок 5 плану) щоразу фільтрує
-        // по ConferenceRoomId і порівнює StartTime/EndTime — цей індекс
-        // покриває найчастіший запит availability search.
+        // Пошук доступних залів фільтрує по ConferenceRoomId і порівнює
+        // StartTime/EndTime - цей індекс покриває той запит.
         builder.HasIndex(b => new { b.ConferenceRoomId, b.StartTime, b.EndTime });
 
         builder.HasOne(b => b.ConferenceRoom)

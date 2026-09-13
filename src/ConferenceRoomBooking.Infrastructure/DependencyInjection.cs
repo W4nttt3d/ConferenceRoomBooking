@@ -10,8 +10,8 @@ namespace ConferenceRoomBooking.Infrastructure;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Реєструє все, що належить Infrastructure-шару (наразі — AppDbContext).
-    /// Викликається з Program.cs одним рядком: builder.Services.AddInfrastructure(builder.Configuration);
+    /// Реєструє AppDbContext і Infrastructure-реалізації сервісів.
+    /// Викликається з Program.cs: builder.Services.AddInfrastructure(builder.Configuration);
     /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {

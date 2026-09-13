@@ -5,7 +5,7 @@ using Xunit;
 namespace ConferenceRoomBooking.Tests.Infrastructure.Services;
 
 /// <summary>
-/// Тут перевіряється правило "недостатня місткість" з плану
+/// Тут перевіряється правило "недостатня місткість"
 /// (CannotBookRoomWithInsufficientCapacity) — воно застосовується саме
 /// при пошуку доступних залів, а не при створенні бронювання: якщо
 /// бронювання створюється напряму за ConferenceRoomId, місткість уже
