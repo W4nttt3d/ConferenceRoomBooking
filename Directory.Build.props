@@ -5,5 +5,14 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- Крок 14 плану (Swagger): потрібен XML-файл документації, щоб
+         Swashbuckle міг підтягнути <summary>/<example> в описи ендпоінтів
+         і схем. CS1591 ("відсутній XML-коментар") вимикаємо: вимагати
+         документацію від кожного public-члена в Domain/Infrastructure —
+         це шум, а не користь; для Swagger важливі лише контролери й DTO,
+         які вже задокументовані. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 </Project>

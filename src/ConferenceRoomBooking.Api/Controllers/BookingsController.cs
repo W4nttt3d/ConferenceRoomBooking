@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ConferenceRoomBooking.Api.Controllers;
 
+/// <summary>Бронювання конференц-залів і розрахунок вартості оренди.</summary>
 [ApiController]
 [Route("api/bookings")]
 [Produces("application/json")]
@@ -18,6 +19,7 @@ public class BookingsController : ControllerBase
     }
 
     /// <summary>Отримати список усіх бронювань (найновіші спочатку).</summary>
+    /// <response code="200">Список бронювань.</response>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<BookingResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<BookingResponse>>> GetAll(CancellationToken cancellationToken)
@@ -27,9 +29,12 @@ public class BookingsController : ControllerBase
     }
 
     /// <summary>Отримати бронювання за Id.</summary>
+    /// <param name="id">Id бронювання.</param>
+    /// <response code="200">Бронювання знайдено.</response>
+    /// <response code="404">Бронювання з таким Id не існує.</response>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(BookingResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<BookingResponse>> GetById(int id, CancellationToken cancellationToken)
     {
         var booking = await _bookingService.GetByIdAsync(id, cancellationToken);
@@ -48,15 +53,20 @@ public class BookingsController : ControllerBase
     /// (оренда залу за тарифними зонами + послуги) і зберігає результат.
     /// Винятки (NotFoundException, BookingConflictException,
     /// UnprocessableEntityException), кинуті сервісом, обробляються
-    /// глобальним GlobalExceptionHandler (крок 13 плану) — тут окремого
-    /// try/catch більше не потрібно.
+    /// глобальним GlobalExceptionHandler — тут окремого try/catch не потрібно.
     /// </summary>
+    /// <param name="request">Зал, інтервал часу та обрані послуги.</param>
+    /// <response code="201">Бронювання створено; у відповіді — розрахована вартість.</response>
+    /// <response code="400">Дані не пройшли валідацію (наприклад, час у минулому, поза робочими годинами 06:00–23:00, або startTime пізніше endTime).</response>
+    /// <response code="404">Зал або одна з обраних послуг не знайдені.</response>
+    /// <response code="409">Зал уже заброньований на цей інтервал (перетин часу з існуючим бронюванням).</response>
+    /// <response code="422">Одна з обраних послуг деактивована й недоступна для бронювання.</response>
     [HttpPost]
     [ProducesResponseType(typeof(BookingResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<BookingResponse>> Create(
         CreateBookingRequest request,
         CancellationToken cancellationToken)

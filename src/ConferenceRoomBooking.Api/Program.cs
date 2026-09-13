@@ -18,8 +18,24 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Conference Room Booking API",
         Version = "v1",
-        Description = "API для бронювання конференц-залів"
+        Description = "API для пошуку доступних конференц-залів, бронювання " +
+            "та розрахунку вартості оренди залежно від часу й обраних послуг. " +
+            "Усі помилки повертаються у форматі ProblemDetails (RFC 7807)."
     });
+
+    // Крок 14 плану: повне покриття Swagger — підтягуємо XML-коментарі
+    // (<summary>, <param>, <response>, <example>) як з Api (контролери),
+    // так і з Application (DTO, які повертаються/приймаються ендпоінтами).
+    // Без цього другого файлу описи властивостей DTO в схемах були б порожні.
+    var apiXmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, apiXmlFile));
+
+    var applicationXmlFile = "ConferenceRoomBooking.Application.xml";
+    var applicationXmlPath = Path.Combine(AppContext.BaseDirectory, applicationXmlFile);
+    if (File.Exists(applicationXmlPath))
+    {
+        options.IncludeXmlComments(applicationXmlPath);
+    }
 });
 
 builder.Services.AddApplication();
