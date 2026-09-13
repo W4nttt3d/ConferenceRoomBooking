@@ -36,7 +36,7 @@ public class BookingsController : ControllerBase
 
         if (booking is null)
         {
-            return NotFound(new { message = $"Бронювання з Id = {id} не знайдено." });
+            throw new NotFoundException($"Бронювання з Id = {id} не знайдено.");
         }
 
         return Ok(booking);
@@ -46,14 +46,11 @@ public class BookingsController : ControllerBase
     /// Створити бронювання. Перевіряє: зал існує й активний, немає конфлікту
     /// за часом, вказані послуги існують і активні; розраховує вартість
     /// (оренда залу за тарифними зонами + послуги) і зберігає результат.
+    /// Винятки (NotFoundException, BookingConflictException,
+    /// UnprocessableEntityException), кинуті сервісом, обробляються
+    /// глобальним GlobalExceptionHandler (крок 13 плану) — тут окремого
+    /// try/catch більше не потрібно.
     /// </summary>
-    /// <remarks>
-    /// try/catch тут — тимчасове рішення. На кроці 13 плану з'явиться
-    /// глобальний exception-handling middleware, і цей блок піде звідси,
-    /// а винятки (NotFoundException, BookingConflictException,
-    /// UnprocessableEntityException) далі кидатимуться так само з сервісу,
-    /// але оброблятимуться в одному місці для всіх контролерів одразу.
-    /// </remarks>
     [HttpPost]
     [ProducesResponseType(typeof(BookingResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -64,22 +61,7 @@ public class BookingsController : ControllerBase
         CreateBookingRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var booking = await _bookingService.CreateAsync(request, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = booking.Id }, booking);
-        }
-        catch (NotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (BookingConflictException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
-        catch (UnprocessableEntityException ex)
-        {
-            return UnprocessableEntity(new { message = ex.Message });
-        }
+        var booking = await _bookingService.CreateAsync(request, cancellationToken);
+        return CreatedAtAction(nameof(GetById), new { id = booking.Id }, booking);
     }
 }

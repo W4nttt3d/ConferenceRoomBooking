@@ -1,4 +1,5 @@
 using ConferenceRoomBooking.Application.DTOs.Services;
+using ConferenceRoomBooking.Application.Exceptions;
 using ConferenceRoomBooking.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,7 +36,7 @@ public class ServicesController : ControllerBase
 
         if (service is null)
         {
-            return NotFound(new { message = $"Послугу з Id = {id} не знайдено." });
+            throw new NotFoundException($"Послугу з Id = {id} не знайдено.");
         }
 
         return Ok(service);
@@ -67,7 +68,7 @@ public class ServicesController : ControllerBase
 
         if (service is null)
         {
-            return NotFound(new { message = $"Послугу з Id = {id} не знайдено." });
+            throw new NotFoundException($"Послугу з Id = {id} не знайдено.");
         }
 
         return Ok(service);
@@ -83,7 +84,7 @@ public class ServicesController : ControllerBase
 
         if (!deactivated)
         {
-            return NotFound(new { message = $"Послугу з Id = {id} не знайдено." });
+            throw new NotFoundException($"Послугу з Id = {id} не знайдено.");
         }
 
         return NoContent();

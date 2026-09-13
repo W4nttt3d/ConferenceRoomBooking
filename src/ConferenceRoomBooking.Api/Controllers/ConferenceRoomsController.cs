@@ -1,4 +1,5 @@
 using ConferenceRoomBooking.Application.DTOs.ConferenceRooms;
+using ConferenceRoomBooking.Application.Exceptions;
 using ConferenceRoomBooking.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -50,7 +51,7 @@ public class ConferenceRoomsController : ControllerBase
 
         if (room is null)
         {
-            return NotFound(new { message = $"Зал з Id = {id} не знайдено." });
+            throw new NotFoundException($"Зал з Id = {id} не знайдено.");
         }
 
         return Ok(room);
@@ -82,7 +83,7 @@ public class ConferenceRoomsController : ControllerBase
 
         if (room is null)
         {
-            return NotFound(new { message = $"Зал з Id = {id} не знайдено." });
+            throw new NotFoundException($"Зал з Id = {id} не знайдено.");
         }
 
         return Ok(room);
@@ -101,7 +102,7 @@ public class ConferenceRoomsController : ControllerBase
 
         if (!deactivated)
         {
-            return NotFound(new { message = $"Зал з Id = {id} не знайдено." });
+            throw new NotFoundException($"Зал з Id = {id} не знайдено.");
         }
 
         return NoContent();

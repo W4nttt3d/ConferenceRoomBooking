@@ -1,3 +1,4 @@
+using ConferenceRoomBooking.Api.ExceptionHandling;
 using ConferenceRoomBooking.Api.Filters;
 using ConferenceRoomBooking.Application;
 using ConferenceRoomBooking.Infrastructure;
@@ -24,7 +25,18 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Глобальна обробка винятків (крок 13 плану) — ProblemDetails для всіх
+// контролерів в одному місці. AddProblemDetails() дає стандартний формат
+// і для помилок, які генерує сам ASP.NET Core (404 для невідомого route
+// тощо), а не тільки для наших власних винятків.
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 var app = builder.Build();
+
+// Має стояти якомога раніше в конвеєрі — щоб перехоплювати винятки з
+// усіх наступних middleware та контролерів.
+app.UseExceptionHandler();
 
 // Seed початкових даних (зали, послуги) — ідемпотентно, безпечно при кожному старті.
 // Тільки для Development: у production наповнення бази — окрема відповідальність (міграції + DBA).
